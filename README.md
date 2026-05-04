@@ -36,4 +36,4 @@ Ideal para quem quer um ambiente leve, rápido e pronto pra produtividade ou des
 4. Cole o comando abaixo:
 
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; irm "https://raw.githubusercontent.com/SEU_USUARIO/NOME_DO_REPOSITORIO/main/Otimizacao_Sistema.ps1" | iex
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm "[https://raw.githubusercontent.com/elberthmayan/otimizacao_windows/main/Otimizar_Sistema.ps1](https://raw.githubusercontent.com/elberthmayan/otimizacao_windows/main/Otimizar_Sistema.ps1)" | iex
