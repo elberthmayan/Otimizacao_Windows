@@ -35,6 +35,7 @@ $bloatwares = @(
     
     # --- Tranqueiras Patrocinadas (Third-Party) ---
     "Spotify",
+    "SpotifyAB",           # Adicionado para apanhar as variações do Spotify
     "Netflix",
     "Instagram",
     "Facebook",
@@ -61,6 +62,9 @@ foreach ($app in $bloatwares) {
     
     # Remove da base do Windows para nao reinstalar se criar outro utilizador
     Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -match $app} | Remove-AppxProvisionedPackage -Online *>$null
+
+    # Remove possíveis atalhos órfãos do Menu Iniciar para esta aplicação
+    Get-ChildItem -Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\*" -Recurse -Include "*$app*.lnk" -ErrorAction SilentlyContinue | Remove-Item -Force *>$null
 }
 
 # Restaura a preferencia de erros para o resto do script
