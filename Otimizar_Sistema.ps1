@@ -48,15 +48,23 @@ $bloatwares = @(
 
 Write-Host "Iniciando a varredura profunda e remocao dos pacotes UWP..." -ForegroundColor Cyan
 
+# Guarda a preferencia original e forca o silencio absoluto
+$OldErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'SilentlyContinue'
+
 foreach ($app in $bloatwares) {
     Write-Host "Cacando e limpando pacote que contem: $app" -ForegroundColor Yellow
     
     # O uso do asterisco (*) garante que ele encontre o pacote, nao importa o ID que a Microsoft coloque
-    Get-AppxPackage -Name "*$app*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue 2>$null
+    # O *>$null redireciona todos os fluxos (incluindo os erros vermelhos mais profundos) para o vazio
+    Get-AppxPackage -Name "*$app*" -AllUsers | Remove-AppxPackage -AllUsers *>$null
     
-    # Remove da base do Windows para nao reinstalar se criar outro usuario
-    Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object {$_.DisplayName -match $app} | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue 2>$null
+    # Remove da base do Windows para nao reinstalar se criar outro utilizador
+    Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -match $app} | Remove-AppxProvisionedPackage -Online *>$null
 }
+
+# Restaura a preferencia de erros para o resto do script
+$ErrorActionPreference = $OldErrorActionPreference
 
 # ---------------------------------------------------------
 # 2. Remocao bruta do OneDrive
@@ -64,7 +72,7 @@ foreach ($app in $bloatwares) {
 Write-Host "Eliminando o OneDrive..." -ForegroundColor Cyan
 
 # Encerra o processo se estiver em execucao
-taskkill /f /im OneDrive.exe -ErrorAction SilentlyContinue 2>$null
+taskkill /f /im OneDrive.exe -ErrorAction SilentlyContinue *>$null
 Start-Sleep -Seconds 2
 
 # Busca e executa o desinstalador nativo silenciosamente
@@ -77,9 +85,9 @@ if (Test-Path "$env:systemroot\System32\OneDriveSetup.exe") {
 Write-Host "Rotina de Bloatwares concluida com sucesso!" -ForegroundColor Green
 
 # ---------------------------------------------------------
-# 3. Ajustes de Registro e Otimizacao do Sistema
+# 3. Ajustes de Registo e Otimizacao do Sistema
 # ---------------------------------------------------------
-Write-Host "Aplicando ajustes avancados no Registro..." -ForegroundColor Cyan
+Write-Host "Aplicando ajustes avancados no Registo..." -ForegroundColor Cyan
 
 # Proibir o Windows de baixar apps de terceiros patrocinados sozinho (Netflix, Spotify, Joguinhos)
 Write-Host "-> Bloqueando a instalacao automatica de apps patrocinados..." -ForegroundColor Yellow
@@ -100,9 +108,9 @@ if (-not (Test-Path $TelemetryPath)) { New-Item -Path $TelemetryPath -Force | Ou
 Set-ItemProperty -Path $TelemetryPath -Name "AllowTelemetry" -Type DWord -Value 0 -Force
 
 # ---------------------------------------------------------
-# 4. Limpeza de Arquivos Temporarios (Protegendo a Lixeira)
+# 4. Limpeza de Ficheiros Temporarios (Protegendo a Reciclagem)
 # ---------------------------------------------------------
-Write-Host "Limpando arquivos temporarios do sistema..." -ForegroundColor Cyan
+Write-Host "Limpando ficheiros temporarios do sistema..." -ForegroundColor Cyan
 
 $pastasTemporarias = @(
     "$env:TEMP\*",
@@ -111,7 +119,7 @@ $pastasTemporarias = @(
 )
 
 foreach ($pasta in $pastasTemporarias) {
-    Remove-Item -Path $pasta -Recurse -Force -ErrorAction SilentlyContinue 2>$null
+    Remove-Item -Path $pasta -Recurse -Force -ErrorAction SilentlyContinue *>$null
 }
 
 # ---------------------------------------------------------
@@ -119,7 +127,7 @@ foreach ($pasta in $pastasTemporarias) {
 # ---------------------------------------------------------
 Write-Host "Desativando avisos chatos e pesquisa web no Menu Iniciar..." -ForegroundColor Cyan
 
-# Desativar pesquisa na Web (Bing) no Menu Iniciar (Pesquisa apenas arquivos locais)
+# Desativar pesquisa na Web (Bing) no Menu Iniciar (Pesquisa apenas ficheiros locais)
 Write-Host "-> Desativando pesquisa Bing no Menu Iniciar..." -ForegroundColor Yellow
 $SearchPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search"
 if (-not (Test-Path $SearchPath)) { New-Item -Path $SearchPath -Force | Out-Null }
@@ -130,8 +138,8 @@ $ExplorerPolicyPath = "HKCU:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
 if (-not (Test-Path $ExplorerPolicyPath)) { New-Item -Path $ExplorerPolicyPath -Force | Out-Null }
 Set-ItemProperty -Path $ExplorerPolicyPath -Name "DisableSearchBoxSuggestions" -Type DWord -Value 1 -Force
 
-# Desativar aviso "Termine de configurar seu dispositivo" (Aviso de Conta Microsoft)
-Write-Host "-> Bloqueando tela de 'Termine de configurar seu dispositivo'..." -ForegroundColor Yellow
+# Desativar aviso "Termine de configurar o seu dispositivo" (Aviso de Conta Microsoft)
+Write-Host "-> Bloqueando ecra de 'Termine de configurar o seu dispositivo'..." -ForegroundColor Yellow
 $UserProfileEngagement = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\UserProfileEngagement"
 if (-not (Test-Path $UserProfileEngagement)) { New-Item -Path $UserProfileEngagement -Force | Out-Null }
 Set-ItemProperty -Path $UserProfileEngagement -Name "ScoobeSystemSettingEnabled" -Type DWord -Value 0 -Force
@@ -147,9 +155,9 @@ if (-not (Test-Path $WUPath)) { New-Item -Path $WUPath -Force | Out-Null }
 Set-ItemProperty -Path $WUPath -Name "TargetReleaseVersion" -Type DWord -Value 1 -Force
 Set-ItemProperty -Path $WUPath -Name "TargetReleaseVersionInfo" -Type String -Value "22H2" -Force
 
-# Reiniciar o Windows Explorer para limpar o cache do Menu Iniciar e aplicar as mudancas imediatamente
-Write-Host "Reiniciando a interface gráfica..." -ForegroundColor Cyan
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+# Reiniciar o Windows Explorer para limpar a cache do Menu Iniciar e aplicar as mudancas imediatamente
+Write-Host "Reiniciando a interface grafica..." -ForegroundColor Cyan
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue *>$null
 
 Write-Host "=====================================================" -ForegroundColor Green
 Write-Host " Limpeza de sistema e otimizacoes concluidas 100%!" -ForegroundColor Green
