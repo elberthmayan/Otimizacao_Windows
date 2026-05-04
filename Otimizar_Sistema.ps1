@@ -1,46 +1,61 @@
 # Modulo de Remocao de Bloatwares - Limpeza do Sistema
 # Requisito: Executar como Administrador
 
+# ---------------------------------------------------------
+# 1. Remocao Forcada de Bloatwares (Usando Curingas)
+# ---------------------------------------------------------
 $bloatwares = @(
-    "Microsoft.BingWeather",
-    "Microsoft.GetHelp",
-    "Microsoft.Getstarted",
-    "Microsoft.Microsoft3DViewer",
-    "Microsoft.MicrosoftOfficeHub",
-    "Microsoft.MicrosoftSolitaireCollection",
-    "Microsoft.MixedReality.Portal",
-    "Microsoft.SkypeApp",
-    "Microsoft.WindowsFeedbackHub",
-    "Microsoft.WindowsMaps",
-    "Microsoft.YourPhone",
-    "Microsoft.ZuneMusic",
-    "Microsoft.ZuneVideo",
-    "Microsoft.Xbox.TCUI",
-    "Microsoft.XboxApp",
-    "Microsoft.XboxGameCallableUI",
-    "Microsoft.XboxGameOverlay",
-    "Microsoft.XboxGamingOverlay",
-    "Microsoft.XboxIdentityProvider",
-    "Microsoft.XboxSpeechToTextOverlay",
-    "microsoft.windowscommunicationsapps",
-    "Microsoft.MSPaint",
-    "Microsoft.Office.OneNote",
-    "Microsoft.549981C3F5F10",       # Cortana
-    "Microsoft.People",              # Pessoas
-    "Microsoft.WindowsCamera",       # Camera
-    "Microsoft.WindowsSoundRecorder" # Gravador de Voz
+    "BingWeather",
+    "GetHelp",
+    "Getstarted",
+    "Microsoft3DViewer",
+    "MicrosoftOfficeHub",
+    "MicrosoftSolitaireCollection",
+    "MixedReality.Portal",
+    "SkypeApp",
+    "WindowsFeedbackHub",
+    "WindowsMaps",
+    "YourPhone",
+    "ZuneMusic",
+    "ZuneVideo",
+    "Xbox.TCUI",
+    "XboxApp",
+    "XboxGameCallableUI",
+    "XboxGameOverlay",
+    "XboxGamingOverlay",
+    "XboxIdentityProvider",
+    "XboxSpeechToTextOverlay",
+    "windowscommunicationsapps",
+    "MSPaint",
+    "Office.OneNote",
+    "549981C3F5F10",       # Cortana
+    "Microsoft.People",    # Pessoas
+    "WindowsCamera",       # Camera
+    "WindowsSoundRecorder",# Gravador de Voz
+    
+    # --- Tranqueiras Patrocinadas (Third-Party) ---
+    "Spotify",
+    "Netflix",
+    "Instagram",
+    "Facebook",
+    "TikTok",
+    "CandyCrush",
+    "PrimeVideo",
+    "Disney",
+    "MarchofEmpires"
+    # LinkedIn FOI MANTIDO de fora, conforme solicitado.
 )
 
-Write-Host "Iniciando a varredura e remocao dos pacotes UWP..." -ForegroundColor Cyan
+Write-Host "Iniciando a varredura profunda e remocao dos pacotes UWP..." -ForegroundColor Cyan
 
 foreach ($app in $bloatwares) {
-    Write-Host "Limpando pacote: $app" -ForegroundColor Yellow
+    Write-Host "Cacando e limpando pacote que contem: $app" -ForegroundColor Yellow
     
-    # Remove do usuario atual
-    Get-AppxPackage -Name $app -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+    # O uso do asterisco (*) garante que ele encontre o pacote, nao importa o ID que a Microsoft coloque
+    Get-AppxPackage -Name "*$app*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue 2>$null
     
-    # Remove do provisionamento do Windows (impede reinstalacao automatica)
-    Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -eq $app} | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+    # Remove da base do Windows para nao reinstalar se criar outro usuario
+    Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object {$_.DisplayName -match $app} | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue 2>$null
 }
 
 # ---------------------------------------------------------
@@ -49,23 +64,28 @@ foreach ($app in $bloatwares) {
 Write-Host "Eliminando o OneDrive..." -ForegroundColor Cyan
 
 # Encerra o processo se estiver em execucao
-taskkill /f /im OneDrive.exe -ErrorAction SilentlyContinue
+taskkill /f /im OneDrive.exe -ErrorAction SilentlyContinue 2>$null
 Start-Sleep -Seconds 2
 
-# Busca e executa o desinstalador nativo
+# Busca e executa o desinstalador nativo silenciosamente
 if (Test-Path "$env:systemroot\System32\OneDriveSetup.exe") {
     Start-Process "$env:systemroot\System32\OneDriveSetup.exe" -ArgumentList "/uninstall" -Wait -NoNewWindow
 } elseif (Test-Path "$env:systemroot\SysWOW64\OneDriveSetup.exe") {
     Start-Process "$env:systemroot\SysWOW64\OneDriveSetup.exe" -ArgumentList "/uninstall" -Wait -NoNewWindow
 }
 
-Write-Host "Rotina do Limpeza do Sistema concluida com sucesso!" -ForegroundColor Green
+Write-Host "Rotina de Bloatwares concluida com sucesso!" -ForegroundColor Green
 
 # ---------------------------------------------------------
 # 3. Ajustes de Registro e Otimizacao do Sistema
 # ---------------------------------------------------------
-
 Write-Host "Aplicando ajustes avancados no Registro..." -ForegroundColor Cyan
+
+# Proibir o Windows de baixar apps de terceiros patrocinados sozinho (Netflix, Spotify, Joguinhos)
+Write-Host "-> Bloqueando a instalacao automatica de apps patrocinados..." -ForegroundColor Yellow
+$CloudContentPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
+if (-not (Test-Path $CloudContentPath)) { New-Item -Path $CloudContentPath -Force | Out-Null }
+Set-ItemProperty -Path $CloudContentPath -Name "DisableWindowsConsumerFeatures" -Type DWord -Value 1 -Force
 
 # Impedir que o Edge assuma o controle dos PDFs
 Write-Host "-> Bloqueando o Edge como leitor de PDF padrao..." -ForegroundColor Yellow
@@ -82,25 +102,21 @@ Set-ItemProperty -Path $TelemetryPath -Name "AllowTelemetry" -Type DWord -Value 
 # ---------------------------------------------------------
 # 4. Limpeza de Arquivos Temporarios (Protegendo a Lixeira)
 # ---------------------------------------------------------
-
 Write-Host "Limpando arquivos temporarios do sistema..." -ForegroundColor Cyan
 
-# Definindo apenas as pastas de arquivos temporarios puros (Lixeira de fora!)
 $pastasTemporarias = @(
     "$env:TEMP\*",
     "$env:WINDIR\Temp\*",
-    "$env:WINDIR\SoftwareDistribution\Download\*" # Cache de atualizacoes do Windows
+    "$env:WINDIR\SoftwareDistribution\Download\*"
 )
 
 foreach ($pasta in $pastasTemporarias) {
-    # Remove os arquivos forcadamente, ignorando os que estao em uso no momento
-    Remove-Item -Path $pasta -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $pasta -Recurse -Force -ErrorAction SilentlyContinue 2>$null
 }
 
 # ---------------------------------------------------------
 # 5. Ajustes de Usabilidade e Remocao de Avisos (Nags)
 # ---------------------------------------------------------
-
 Write-Host "Desativando avisos chatos e pesquisa web no Menu Iniciar..." -ForegroundColor Cyan
 
 # Desativar pesquisa na Web (Bing) no Menu Iniciar (Pesquisa apenas arquivos locais)
@@ -131,12 +147,10 @@ if (-not (Test-Path $WUPath)) { New-Item -Path $WUPath -Force | Out-Null }
 Set-ItemProperty -Path $WUPath -Name "TargetReleaseVersion" -Type DWord -Value 1 -Force
 Set-ItemProperty -Path $WUPath -Name "TargetReleaseVersionInfo" -Type String -Value "22H2" -Force
 
-$UpgradePath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OSUpgrade"
-if (-not (Test-Path $UpgradePath)) { New-Item -Path $UpgradePath -Force | Out-Null }
-Set-ItemProperty -Path $UpgradePath -Name "AllowOSUpgrade" -Type DWord -Value 0 -Force
-Set-ItemProperty -Path $UpgradePath -Name "ReservationsAllowed" -Type DWord -Value 0 -Force
-
-# Reiniciar o Windows Explorer para aplicar as mudancas do Menu Iniciar imediatamente
+# Reiniciar o Windows Explorer para limpar o cache do Menu Iniciar e aplicar as mudancas imediatamente
+Write-Host "Reiniciando a interface gráfica..." -ForegroundColor Cyan
 Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
 
-Write-Host "Limpeza de sistema e otimizacoes concluidas!" -ForegroundColor Green
+Write-Host "=====================================================" -ForegroundColor Green
+Write-Host " Limpeza de sistema e otimizacoes concluidas 100%!" -ForegroundColor Green
+Write-Host "=====================================================" -ForegroundColor Green
