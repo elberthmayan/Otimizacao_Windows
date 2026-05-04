@@ -155,8 +155,30 @@ if (-not (Test-Path $WUPath)) { New-Item -Path $WUPath -Force | Out-Null }
 Set-ItemProperty -Path $WUPath -Name "TargetReleaseVersion" -Type DWord -Value 1 -Force
 Set-ItemProperty -Path $WUPath -Name "TargetReleaseVersionInfo" -Type String -Value "22H2" -Force
 
+# ---------------------------------------------------------
+# 6. Limpar Blocos do Menu Iniciar (Layout Vazio)
+# ---------------------------------------------------------
+Write-Host "-> Desafixando todos os blocos ('Produtividade', 'Explorar') do Menu Iniciar..." -ForegroundColor Yellow
+$BlankLayout = @"
+<LayoutModificationTemplate xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout" xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout" Version="1" xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification">
+  <LayoutOptions StartTileGroupCellWidth="6" />
+  <DefaultLayoutOverride>
+    <StartLayoutCollection>
+      <defaultlayout:StartLayout GroupCellWidth="6" />
+    </StartLayoutCollection>
+  </DefaultLayoutOverride>
+</LayoutModificationTemplate>
+"@
+
+$LayoutPath = "$env:LOCALAPPDATA\Microsoft\Windows\Shell\LayoutModification.xml"
+$BlankLayout | Out-File -FilePath $LayoutPath -Encoding UTF8 -Force
+
+# Apagar a base de dados em cache do Menu Iniciar para forçar o Windows a aplicar o novo XML
+$CloudStore = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\CloudStore\Store\Cache\DefaultAccount"
+Get-ChildItem -Path $CloudStore -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "start.tilegrid" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue *>$null
+
 # Reiniciar o Windows Explorer para limpar a cache do Menu Iniciar e aplicar as mudancas imediatamente
-Write-Host "Reiniciando a interface grafica..." -ForegroundColor Cyan
+Write-Host "Reiniciando a interface grafica para aplicar a limpeza..." -ForegroundColor Cyan
 Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue *>$null
 
 Write-Host "=====================================================" -ForegroundColor Green
